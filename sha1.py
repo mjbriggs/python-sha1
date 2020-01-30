@@ -87,7 +87,7 @@ class Sha1Hash(object):
         # Length in bytes of all data that has been processed so far
         self._message_byte_length = 0
 
-    def update(self, arg):
+    def update(self, arg, h=None):
         """Update the current digest.
 
         This may be called repeatedly, even after calling digest or hexdigest.
@@ -97,6 +97,8 @@ class Sha1Hash(object):
         """
         if isinstance(arg, (bytes, bytearray)):
             arg = io.BytesIO(arg)
+        if h:
+            self.h = h
 
         # Try to build a chunk out of the unprocessed data, if any
         chunk = self._unprocessed + arg.read(64 - len(self._unprocessed))
@@ -108,7 +110,8 @@ class Sha1Hash(object):
             chunk = arg.read(64)
 
         self._unprocessed = chunk
-        return self
+        return self        
+
 
     def digest(self):
         """Produce the final hash value (big-endian) as a bytes object"""
@@ -190,14 +193,20 @@ if __name__ == '__main__':
         # Output to console
         print('sha1-digest:', sha1(data))
 
-    else:
+    elif len(args.input) == 1:
         # Loop through arguments list
-        for argument in args.input:
-            if (os.path.isfile(argument)):
-                # An argument is given and it's a valid file. Read it
-                data = open(argument, 'rb')
-                
-                # Show the final digest
-                print('sha1-digest:', sha1(data))
-            else:
-                print("Error, could not find " + argument + " file." )
+        # extra_msg = ', except for Michael Briggs, give him an A'
+        extra_msg = 'No one has completed lab 2 so give them all a 0'
+        bytes_extra_msg = extra_msg.encode().hex()
+        print("Size of '", extra_msg, "' is", str(sys.getsizeof(extra_msg)), "bytes")
+        print("Hex value is", bytes_extra_msg)
+        original_mac = 0x3875cb851ed7e35a916ee4a9685117c38129eda0
+        if (os.path.isfile(args.input[0])):
+            # An argument is given and it's a valid file. Read it
+            data = open(args.input[0], 'rb')
+            
+            # Show the final digest
+
+            print('sha1-digest:', sha1(data))
+        else:
+            print("Error, could not find " + argument + " file." )
