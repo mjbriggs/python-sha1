@@ -118,11 +118,11 @@ class Sha1Hash(object):
         """Produce the final hash value (big-endian) as a bytes object"""
         return b''.join(struct.pack(b'>I', h) for h in self._produce_digest())
 
-    def hexdigest(self, key_len=0):
+    def hexdigest(self, key_len=0, old_len=0):
         """Produce the final hash value (big-endian) as a hex string"""
-        return '%08x%08x%08x%08x%08x' % self._produce_digest(key_len)
+        return '%08x%08x%08x%08x%08x' % self._produce_digest(key_len, old_len)
 
-    def _produce_digest(self, key_len=0):
+    def _produce_digest(self, key_len=0, old_len=0):
         """Return finalized digest variables for the data processed so far."""
         # Pre-processing:
         print("producing digest on input", self._unprocessed)
@@ -147,7 +147,7 @@ class Sha1Hash(object):
         message += b'\x00' * ((56 - (message_byte_length + 1) % 64) % 64)
 
         # append length of message (before pre-processing), in bits, as 64-bit big-endian integer
-        message_bit_length = message_byte_length * 8
+        message_bit_length = (message_byte_length + old_len) * 8 
         message += struct.pack(b'>Q', message_bit_length)
         print("bit length after padding is :", len(message) * BYTE)
 
@@ -209,7 +209,7 @@ if __name__ == '__main__':
         # Output to console
         print('sha1-digest:', sha1(data))
 
-    elif len(args.input) == 1:
+    elif len(sys.argv) == 2:
 
         extra_msg = ', give an A to Michael Briggs :)'
         key_len = 128
@@ -246,7 +246,9 @@ if __name__ == '__main__':
             s1Hash = Sha1Hash()
             s1Hash._h = original_mac
             s1Hash.update(extra_msg)
-            new_digest = s1Hash.hexdigest(key_len + len(og_msg) * 8)
+            new_digest = s1Hash.hexdigest(key_len + len(og_msg) * 8, len(og_msg))
             print('\nnew digest is', new_digest, "\n")
         else:
-            print("Error, could not find " + argument + " file." )
+            print("python sha1.py clift_msg.txt")
+    else:
+            print("python sha1.py clift_msg.txt")
