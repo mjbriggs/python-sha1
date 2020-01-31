@@ -9,6 +9,7 @@ try:
 except NameError:
     pass
 
+BYTE = 8
 
 def _left_rotate(n, b):
     """Left rotate a 32-bit integer n by b bits."""
@@ -86,8 +87,9 @@ class Sha1Hash(object):
         self._unprocessed = b''
         # Length in bytes of all data that has been processed so far
         self._message_byte_length = 0
+        self._message = None
 
-    def update(self, arg, h=None):
+    def update(self, arg):
         """Update the current digest.
 
         This may be called repeatedly, even after calling digest or hexdigest.
@@ -97,10 +99,9 @@ class Sha1Hash(object):
         """
         if isinstance(arg, (bytes, bytearray)):
             arg = io.BytesIO(arg)
-        if h:
-            self.h = h
 
         # Try to build a chunk out of the unprocessed data, if any
+        print("length of unprocessed is", len(self._unprocessed))
         chunk = self._unprocessed + arg.read(64 - len(self._unprocessed))
 
         # Read the rest of the data, 64 bytes at a time
@@ -117,26 +118,40 @@ class Sha1Hash(object):
         """Produce the final hash value (big-endian) as a bytes object"""
         return b''.join(struct.pack(b'>I', h) for h in self._produce_digest())
 
-    def hexdigest(self):
+    def hexdigest(self, key_len=0):
         """Produce the final hash value (big-endian) as a hex string"""
-        return '%08x%08x%08x%08x%08x' % self._produce_digest()
+        return '%08x%08x%08x%08x%08x' % self._produce_digest(key_len)
 
-    def _produce_digest(self):
+    def _produce_digest(self, key_len=0):
         """Return finalized digest variables for the data processed so far."""
         # Pre-processing:
-        message = self._unprocessed
+        print("producing digest on input", self._unprocessed)
+        if key_len:
+          message = b''
+        else:
+          message = b'\x00' * 16
+          print("adding for key of bit length", len(message) * 8)
+
+
+
+        message += self._unprocessed
         message_byte_length = self._message_byte_length + len(message)
+        print("bit length before padding is", message_byte_length * BYTE)
 
         # append the bit '1' to the message
         message += b'\x80'
 
         # append 0 <= k < 512 bits '0', so that the resulting message length (in bytes)
         # is congruent to 56 (mod 64)
+        
         message += b'\x00' * ((56 - (message_byte_length + 1) % 64) % 64)
 
         # append length of message (before pre-processing), in bits, as 64-bit big-endian integer
         message_bit_length = message_byte_length * 8
         message += struct.pack(b'>Q', message_bit_length)
+        print("bit length after padding is :", len(message) * BYTE)
+
+        self._message = message
 
         # Process the final chunk
         # At this point, the length of the message is either 64 or 128 bytes.
@@ -165,6 +180,7 @@ if __name__ == '__main__':
     import argparse
     import sys
     import os
+    import binascii
 
     # Parse the incoming arguments
     parser = argparse.ArgumentParser()
@@ -194,19 +210,43 @@ if __name__ == '__main__':
         print('sha1-digest:', sha1(data))
 
     elif len(args.input) == 1:
-        # Loop through arguments list
-        # extra_msg = ', except for Michael Briggs, give him an A'
-        extra_msg = 'No one has completed lab 2 so give them all a 0'
-        bytes_extra_msg = extra_msg.encode().hex()
-        print("Size of '", extra_msg, "' is", str(sys.getsizeof(extra_msg)), "bytes")
-        print("Hex value is", bytes_extra_msg)
-        original_mac = 0x3875cb851ed7e35a916ee4a9685117c38129eda0
+
+        extra_msg = ', give an A to Michael Briggs :)'
+        key_len = 128
+        # extra_msg = 'No one has completed lab 2 so give them all a 0'
+        print("Size of extra_msg is ", len(extra_msg) * BYTE)
+        original_mac = (
+          0x3875cb85,
+          0x1ed7e35a,
+          0x916ee4a9,
+          0x685117c3,
+          0x8129eda0,
+        )
         if (os.path.isfile(args.input[0])):
             # An argument is given and it's a valid file. Read it
             data = open(args.input[0], 'rb')
-            
-            # Show the final digest
 
-            print('sha1-digest:', sha1(data))
+            v = b'\x00' * BYTE
+            print(len(binascii.hexlify(v)))
+            # calculate the new message
+            s1Hash = Sha1Hash()
+            s1Hash.update(data)
+            # s1Hash._message_byte_length += key_len
+            s1Hash._produce_digest()
+            og_msg = s1Hash._message
+            print("\nold message:", og_msg, "\n")
+            print("old message hex:\n", binascii.hexlify(og_msg))
+            print("\nextra message:", extra_msg, "\n")
+            print("extra message hex:\n", binascii.hexlify(extra_msg))
+            new_msg = og_msg + extra_msg
+            print("\nnew message:", new_msg, "\n")
+            print("new message hex:\n", binascii.hexlify(new_msg), "\n")
+
+            # calculate the new digest
+            s1Hash = Sha1Hash()
+            s1Hash._h = original_mac
+            s1Hash.update(extra_msg)
+            new_digest = s1Hash.hexdigest(key_len + len(og_msg) * 8)
+            print('\nnew digest is', new_digest, "\n")
         else:
             print("Error, could not find " + argument + " file." )
